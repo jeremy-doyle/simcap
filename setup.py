@@ -13,7 +13,7 @@ setup(
     description='Simulation of Correlated Asset Prices',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    version='0.1.0',
+    version='0.1.1',
     author='Jeremy Doyle',
     author_email='hello@jeremy-doyle.com',
     url='https://github.com/jeremy-doyle/simcap',
@@ -56,5 +56,6 @@ setup(
         'risk',
         ],
     packages=find_packages(exclude=['tests*','examples*,docs*']),
+    package_data={'simcap': ['datasets/csv/*.csv']},
     python_requires='>=3.7',
 )
