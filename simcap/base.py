@@ -7,6 +7,7 @@ from statsmodels.tsa.stattools import adfuller, kpss
 from tqdm import tqdm
 from .markov import markov_model_search
 from .exceptions import StationaryWarning, CorrelatedExogWarning, NegativeValuesError
+from joblib import Parallel, delayed
 import warnings
 
 
@@ -206,7 +207,6 @@ class BaseSimulation:
             for i, col in enumerate(endog_to_exog.T):
                 if np.any(np.abs(col) >= 0.98):
                     delete.append(i)
-
             if len(delete) == exog.shape[1]:
                 self.exogenous = None
                 if not self.suppress_warnings:
@@ -309,7 +309,6 @@ class BaseSimulation:
         if exog is not None:
             hmm_sim = self._remove_exog_from_merged(hmm_sim, exog)
             log_change = self._remove_exog_from_merged(log_change, exog)
-
         simulation = np.empty_like(hmm_sim)
 
         for i, x_sim in enumerate(hmm_sim.T):
@@ -331,7 +330,6 @@ class BaseSimulation:
                     sx = mquantiles(x_endog, q)
             else:
                 sx = mquantiles(x_endog, q)
-
             # get z scores of simulated data that was fit to kde
             mu = np.mean(sx)
             sig = np.std(sx, ddof=1)
@@ -345,7 +343,6 @@ class BaseSimulation:
             new_x = z * new_sig + new_mu
 
             simulation[:, i] = new_x
-
         return simulation
 
     @staticmethod
@@ -413,13 +410,11 @@ class BaseSimulation:
 
         if not self._all_pos_values(self.endogenous):
             raise NegativeValuesError(e.format(endog_label))
-
         if self.prototypes is not None:
             for proto in self.prototypes:
                 if proto is not None:
                     if not self._all_pos_values(proto):
                         raise NegativeValuesError(e.format("Prototype"))
-
         if self.exogenous is not None:
             if not self._all_pos_values(self.exogenous):
                 raise NegativeValuesError(e.format(exog_label))
@@ -486,6 +481,7 @@ class BaseSimulation:
         hmm_search_n_fits_per_iter=10,
         hmm_search_params=None,
         output_as_float32=False,
+        n_jobs=None,
         verbose=True,
     ):
         """
@@ -505,15 +501,15 @@ class BaseSimulation:
             series. "end" will set the first row of each simulation to match the last 
             row of the endogenous series. "norm" will set the first row of each 
             simulation to 1 in all columns.
-        hmm_search_n_iter: int, default=60
+        hmm_search_n_iter : int, default=60
             For Hidden Markov Model search, the number of parameter settings that are 
             sampled. ``n_iter`` trades off runtime vs quality of the solution. If 
             exhausitive search of the parameter grid would result in fewer iterations, 
             search stops when all parameter combinations have been searched.
-        hmm_search_n_fits_per_iter: int, default=10
+        hmm_search_n_fits_per_iter : int, default=10
             The number of Hidden Markov Models to be randomly initialized and evaluated 
             for each combination of parameter settings.
-        hmm_search_params: dict, default=None
+        hmm_search_params : dict, default=None
             For Hidden Markov Model search, dictionary with parameter names (str) as 
             keys and lists of parameters to try as dictionary values. Parameter lists 
             are sampled uniformly. All of the parameters are required:
@@ -536,6 +532,10 @@ class BaseSimulation:
         output_as_float32 : bool, default=False
             If True, convert simulation array to float32. If False, simulation will be 
             output as float64.
+        n_jobs : int, default=None
+            Number of jobs to run in parallel when performing Hidden Markov Model search 
+            as well as when generating simulations. None means 1. -1 means using all 
+            processors. 
         verbose : bool, default=True
             If True, progress bar written to stdout as simulations are generated.
 
@@ -550,12 +550,13 @@ class BaseSimulation:
         exog = self.exogenous
         bv = self._begin_values(begin_values)
 
+        if n_jobs is None:
+            n_jobs = 1
         # merge endogenous and exogenous series
         if exog is not None:
             series = self._merge_endog_and_exog(endog, exog)
         else:
             series = endog
-
         # calculate log percentage change
         series_log_change = self._log_change(series)
 
@@ -565,16 +566,13 @@ class BaseSimulation:
             hmm_search_n_iter,
             hmm_search_n_fits_per_iter,
             hmm_search_params,
+            n_jobs=n_jobs,
             verbose=verbose,
         )
         model = results["model"]
 
         # generate simulations
-        simulations = list()
-
-        for _ in tqdm(
-            range(n_sims), desc="generating simulations", disable=not verbose,
-        ):
+        def single_simulation(i):
             markov_sim, _ = model.sample(size)
             sim_log_change = self._fit_hmm_sim_to_empirical(
                 markov_sim, series_log_change
@@ -583,8 +581,20 @@ class BaseSimulation:
 
             if output_as_float32:
                 simulation = simulation.astype("float32")
+            return simulation
 
-            simulations.append(simulation)
+        parallel = Parallel(n_jobs=n_jobs)
+
+        tqdm_args = {
+            "iterable": range(n_sims),
+            "desc": f"generating sims (n_jobs={n_jobs})",
+            "total": n_sims,
+            "disable": not verbose,
+            "position": 0,
+            "leave": True,
+        }
+
+        simulations = parallel(delayed(single_simulation)(i) for i in tqdm(**tqdm_args))
 
         simulations = np.array(simulations)
 

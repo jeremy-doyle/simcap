@@ -7,6 +7,7 @@ from sklearn.cluster import AgglomerativeClustering
 from sklearn.model_selection import ParameterGrid
 from random import shuffle
 from hmmlearn import hmm
+from joblib import Parallel, delayed
 from tqdm import tqdm
 
 
@@ -100,7 +101,6 @@ class MarkovModelSearch:
             corr_matrix = np.corrcoef(window, rowvar=False)
             corr_coef = corr_matrix[np.triu_indices(cols, k=1)]
             corr_coefs.append(corr_coef)
-
         cov_matrices = np.array(cov_matrices)
         means = np.array(means)
         corr_coefs = np.array(corr_coefs)
@@ -111,10 +111,8 @@ class MarkovModelSearch:
             features = pca.fit_transform(corr_coefs)
         else:
             features = pca.fit_transform(scale(corr_coefs))
-
         if scale_after_pca:
             features = scale(features)
-
         model = AgglomerativeClustering(n_clusters)
         cluster_labels = model.fit_predict(features)
 
@@ -146,7 +144,6 @@ class MarkovModelSearch:
             n = cluster_cov_matrices.shape[0]
             choice = int(np.random.uniform(0, n))
             covar_init.append(cluster_cov_matrices[choice])
-
         covar_init = np.array(covar_init)
 
         return covar_init
@@ -177,7 +174,6 @@ class MarkovModelSearch:
             n = cluster_means.shape[0]
             choice = int(np.random.uniform(0, n))
             mean_init.append(cluster_means[choice])
-
         mean_init = np.array(mean_init)
 
         return mean_init
@@ -299,6 +295,7 @@ class MarkovModelSearch:
         n_iter,
         n_fits_per_iter,
         fit_pipeline_params=None,
+        n_jobs=None,
         verbose=False,
     ):
         """
@@ -338,6 +335,9 @@ class MarkovModelSearch:
                     scale_after_pca = [True, False],
                 )
             
+        n_jobs : int, default=None
+            Number of jobs to run in parallel when performing Hidden Markov Model 
+            search. None means 1. -1 means using all processors. 
         verbose : bool, default=False
             If ``True``, progress bar written to stdout during model search.
 
@@ -372,21 +372,13 @@ class MarkovModelSearch:
                 scale_before_pca=[True, False],
                 scale_after_pca=[True, False],
             )
-
         param_grid = list(ParameterGrid(fit_pipeline_params))
         shuffle(param_grid)
 
-        models = list()
-        best_score = 0
-        best_results = None
+        if n_iter < len(param_grid):
+            param_grid = param_grid[:n_iter]
 
-        for i in tqdm(
-            range(min(n_iter, len(param_grid))),
-            desc="markov model search",
-            disable=not verbose,
-        ):
-            params = param_grid[i]
-
+        def single_fit(params):
             model_score, model_params, model = self.run_fit_pipeline(
                 log_change,
                 n_states=params["n_states"],
@@ -397,18 +389,40 @@ class MarkovModelSearch:
                 n_fits=n_fits_per_iter,
             )
 
-            results = {"score": model_score, "params": model_params, "model": model}
-            models.append(results)
+            result = {"score": model_score, "params": model_params, "model": model}
 
-            if model_score > best_score:
-                best_score = model_score
+            return result
+
+        parallel = Parallel(n_jobs=n_jobs)
+
+        tqdm_args = {
+            "iterable": param_grid,
+            "desc": f"markov model search (n_jobs={n_jobs})",
+            "total": len(param_grid),
+            "disable": not verbose,
+            "position": 0,
+            "leave": True,
+        }
+
+        models = parallel(delayed(single_fit)(params) for params in tqdm(**tqdm_args))
+
+        best_score = 0
+        best_results = None
+
+        for results in models:
+            if results["score"] > best_score:
+                best_score = results["score"]
                 best_results = results
-
         return best_results, models
 
 
 def markov_model_search(
-    log_change, n_iter, n_fits_per_iter, fit_pipeline_params=None, verbose=False
+    log_change,
+    n_iter,
+    n_fits_per_iter,
+    fit_pipeline_params=None,
+    n_jobs=None,
+    verbose=False,
 ):
     """
     Randomized grid search of hyperparameter space to find a well-performing Hidden
@@ -447,6 +461,9 @@ def markov_model_search(
                 scale_after_pca = [True, False],
             )
         
+    n_jobs : int, default=None
+        Number of jobs to run in parallel when performing Hidden Markov Model 
+        search. None means 1. -1 means using all processors.
     verbose : bool, default=False
         If ``True``, progress bar written to stdout during model search.
 
@@ -475,6 +492,6 @@ def markov_model_search(
     """
     mms = MarkovModelSearch()
     best_results, models = mms.model_search(
-        log_change, n_iter, n_fits_per_iter, fit_pipeline_params, verbose
+        log_change, n_iter, n_fits_per_iter, fit_pipeline_params, n_jobs, verbose
     )
     return best_results, models

@@ -91,6 +91,7 @@ For this example, parameters were chosen to:
 * generate five simulations
 * set the beginning values of each asset in each simulation to 1 (`begin_values="norm"`)
 * output the simulations as a list of pandas dataframes
+* speed things up by setting the number of parallel jobs to 3
 
 ```python
 >>> model = SimCAP(obs)
@@ -98,17 +99,18 @@ For this example, parameters were chosen to:
 >>>     n_sims=5, 
 >>>     begin_values="norm",
 >>>     output_as_dfs=True,
+>>>     n_jobs=3,
 >>> )
-markov model search: 100%|██████████| 60/60 [03:45<00:00,  3.77s/it]
-generating simulations: 100%|██████████| 5/5 [00:02<00:00,  1.83it/s]
+markov model search (n_jobs=3): 100%|██████████| 60/60 [01:27<00:00,  1.45s/it]
+generating sims (n_jobs=3): 100%|██████████| 5/5 [00:00<00:00, 2465.79it/s]
 
 >>> sims[0].head().round(4)
       SPY      VO     IWM     EFA     VWO     AGG    IBND     VNQ
 0  1.0000  1.0000  1.0000  1.0000  1.0000  1.0000  1.0000  1.0000
-1  1.0109  1.0112  1.0106  1.0118  1.0055  0.9974  0.9991  1.0085
-2  1.0026  1.0029  1.0007  1.0127  1.0081  0.9989  1.0019  1.0109
-3  1.0040  1.0037  1.0051  1.0171  1.0056  0.9955  0.9975  1.0193
-4  0.9972  0.9952  0.9962  1.0080  1.0025  0.9980  0.9958  1.0135
+1  1.0107  1.0123  1.0194  1.0124  1.0192  1.0002  0.9966  1.0159
+2  1.0138  1.0203  1.0254  1.0160  1.0379  0.9961  0.9931  1.0049
+3  1.0049  1.0080  1.0082  1.0029  1.0260  0.9958  0.9879  0.9918
+4  1.0061  1.0106  1.0091  1.0002  1.0166  0.9966  0.9921  0.9933
 ```
 
 ## Comparing Observation to Simulations <a name="comparison"></a>
@@ -382,24 +384,24 @@ Simulation of Correlated Asset Prices
 ### Methods
 
 <p style="background-color:#eaecef; padding:1em;">
-  <strong>generate_simulations</strong>(<em>n_sims=100, periods_per_sim=None, begin_values="norm", hmm_search_n_iter=60, hmm_search_n_fits_per_iter=10, hmm_search_params=None, output_as_dfs=True, output_as_float32=False, verbose=True</em>)
+  <strong>generate_simulations</strong>(<em>n_sims=100, periods_per_sim=None, begin_values="norm", hmm_search_n_iter=60, hmm_search_n_fits_per_iter=10, hmm_search_params=None, output_as_dfs=True, output_as_float32=False, n_jobs=None, verbose=True</em>)
 </p>
 
 Generate simulations using the data set at object initiation.
 
 ### Parameters
 <dl>
-  <dt>n_sims : int, default=100<dt>
+  <dt>n_sims : int, default=100</dt>
   <dd>
     The number of simulations to generate.
   </dd>
-  <dt>periods_per_sim : int, optional<dt>
+  <dt>periods_per_sim : int, optional</dt>
   <dd>
     The number of periods, or rows, to generate in each simulation. If None 
     (default), the periods per simulation will match the number of rows in the 
     asset_price_history DataFrame.
   </dd>
-  <dt>begin_values : {"start", "end", "norm"}, default="norm"<dt>
+  <dt>begin_values : {"start", "end", "norm"}, default="norm"</dt>
   <dd>
     The values to set for the first row of each simulation. "start" will set the 
     first row of each simulation to match the first row of asset prices in the 
@@ -407,19 +409,19 @@ Generate simulations using the data set at object initiation.
     simulation to match the last row of the asset_price_history DataFrame. 
     "norm" will set the first row of each simulation to 1 for all assets.
   </dd>
-  <dt>hmm_search_n_iter: int, default=60<dt>
+  <dt>hmm_search_n_iter: int, default=60</dt>
   <dd>
     For Hidden Markov Model search, the number of parameter settings that are 
     sampled. <code>n_iter</code> trades off runtime vs quality of the solution. If 
     exhausitive search of the parameter grid would result in fewer iterations, 
     search stops when all parameter combinations have been searched.
   </dd>
-  <dt>hmm_search_n_fits_per_iter: int, default=10<dt>
+  <dt>hmm_search_n_fits_per_iter: int, default=10</dt>
   <dd>
     The number of Hidden Markov Models to be randomly initialized and evaluated 
     for each combination of parameter settings.
   </dd>
-  <dt>hmm_search_params: dict, default=None<dt>
+  <dt>hmm_search_params: dict, default=None</dt>
   <dd>
     For Hidden Markov Model search, dictionary with parameter names (str) as 
     keys and lists of parameters to try as dictionary values. Parameter lists 
@@ -441,18 +443,24 @@ Generate simulations using the data set at object initiation.
             scale_after_pca = [True, False],
         )
   </dd>
-  <dt>output_as_dfs : bool, default=True<dt>
+  <dt>output_as_dfs : bool, default=True</dt>
   <dd>
     If True, simulations are output as an n_sims element list of DataFrames of 
     shape (periods_per_sim, n_assets). If False, simulations are ouput as an 
     ndarray of shape (n_sims, periods_per_sim, n_assets).
   </dd>
-  <dt>output_as_float32 : bool, default=False<dt>
+  <dt>output_as_float32 : bool, default=False</dt>
   <dd>
     If True, convert simulation array to float32. If False, simulation will be 
     output as float64.
   </dd>
-  <dt>verbose : bool, default=True<dt>
+  <dt>n_jobs : int, default=None</dt>
+  <dd>
+    Number of jobs to run in parallel when performing Hidden Markov Model search 
+    as well as when generating simulations. None means 1. -1 means using all 
+    processors.
+  </dd>
+  <dt>verbose : bool, default=True</dt>
   <dd>
     If True, progress bar written to stdout as simulations are generated.
   </dd>

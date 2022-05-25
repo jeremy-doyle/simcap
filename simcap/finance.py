@@ -142,6 +142,7 @@ class SimCAP(BaseSimulation):
         hmm_search_params=None,
         output_as_dfs=True,
         output_as_float32=False,
+        n_jobs=None,
         verbose=True,
     ):
         """
@@ -161,15 +162,15 @@ class SimCAP(BaseSimulation):
             asset_price_history DataFrame. "end" will set the first row of each 
             simulation to match the last row of the asset_price_history DataFrame. 
             "norm" will set the first row of each simulation to 1 for all assets.
-        hmm_search_n_iter: int, default=60
+        hmm_search_n_iter : int, default=60
             For Hidden Markov Model search, the number of parameter settings that are 
             sampled. ``n_iter`` trades off runtime vs quality of the solution. If 
             exhausitive search of the parameter grid would result in fewer iterations, 
             search stops when all parameter combinations have been searched.
-        hmm_search_n_fits_per_iter: int, default=10
+        hmm_search_n_fits_per_iter : int, default=10
             The number of Hidden Markov Models to be randomly initialized and evaluated 
             for each combination of parameter settings.
-        hmm_search_params: dict, default=None
+        hmm_search_params : dict, default=None
             For Hidden Markov Model search, dictionary with parameter names (str) as 
             keys and lists of parameters to try as dictionary values. Parameter lists 
             are sampled uniformly. All of the parameters are required:
@@ -196,6 +197,10 @@ class SimCAP(BaseSimulation):
         output_as_float32 : bool, default=False
             If True, convert simulation array to float32. If False, simulation will be 
             output as float64.
+        n_jobs : int, default=None
+            Number of jobs to run in parallel when performing Hidden Markov Model search 
+            as well as when generating simulations. None means 1. -1 means using all 
+            processors.
         verbose : bool, default=True
             If True, progress bar written to stdout as simulations are generated.
             
@@ -218,10 +223,10 @@ class SimCAP(BaseSimulation):
             hmm_search_n_fits_per_iter=hmm_search_n_fits_per_iter,
             hmm_search_params=hmm_search_params,
             output_as_float32=output_as_float32,
+            n_jobs=n_jobs,
             verbose=verbose,
         )
 
         if output_as_dfs:
             simulations = [pd.DataFrame(a, columns=self.tickers_) for a in simulations]
-
         return simulations
