@@ -249,7 +249,8 @@ class BaseSimulation:
         n = log_change.shape[0]
         se = sem(log_change)
         t_dist = t(df=n - 1, loc=m, scale=se)
-        lower_bound, upper_bound = t_dist.interval(alpha=0.7)
+        # https://github.com/scipy/scipy/issues/15706
+        lower_bound, upper_bound = t_dist.interval(confidence=0.7)
         random_mean = t_dist.rvs()
         while not lower_bound <= random_mean <= upper_bound:
             random_mean = t_dist.rvs()
