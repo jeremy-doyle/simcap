@@ -13,42 +13,42 @@ import warnings
 
 class BaseSimulation:
     """
-    Base class used to generate simulations of generic correlated, nonnegative, 
+    Base class used to generate simulations of generic correlated, nonnegative,
     nonstationary, multivariate time series.
-    
+
     Parameters
     ----------
     endogenous : ndarray of shape (n_periods, n_variables)
-        An endogenous variable is a variable in a model that is changed or determined 
-        by its relationship with other variables within the model. Variables should be 
-        in columns with periods in rows. It is assumed the passed array is already  
-        sorted chronologically with the most recent observation in the last row. The  
+        An endogenous variable is a variable in a model that is changed or determined
+        by its relationship with other variables within the model. Variables should be
+        in columns with periods in rows. It is assumed the passed array is already
+        sorted chronologically with the most recent observation in the last row. The
         endogenous variables in this array will be modeled by the simulation.
     prototypes : list of ndarrays of shape (n_periods, ), optional
-        A list of univariate time series of shape (n_periods, ). It is assumed each of 
-        the prototypes are already sorted chronologically with the most recent  
-        observation in the last element of the array. Prototypical time series can be 
-        used to model distributions of endogenous variables. For example, if attempting 
-        to model the price of a mutual fund with only two years of bull market price 
-        history, one might decide to use a stock index like the S&P 500 as a prototype 
-        for the mutual fund since the stock index has a longer history with examples 
+        A list of univariate time series of shape (n_periods, ). It is assumed each of
+        the prototypes are already sorted chronologically with the most recent
+        observation in the last element of the array. Prototypical time series can be
+        used to model distributions of endogenous variables. For example, if attempting
+        to model the price of a mutual fund with only two years of bull market price
+        history, one might decide to use a stock index like the S&P 500 as a prototype
+        for the mutual fund since the stock index has a longer history with examples
         across all market regimes.
     endog_proto_rel : dict, optional
-        Required if prototypes are used. A dictionary mapping endogenous variables to 
-        prototype series. For example, if the first endogenous variable maps to the 
-        first prototype, the second endogenous variable does not have a prototype, and 
-        the third endogenous variable maps to the second prototype, pass the dictionary: 
+        Required if prototypes are used. A dictionary mapping endogenous variables to
+        prototype series. For example, if the first endogenous variable maps to the
+        first prototype, the second endogenous variable does not have a prototype, and
+        the third endogenous variable maps to the second prototype, pass the dictionary:
         {0: 0, 1: None, 2: 1}
     exogenous : ndarray of shape (n_periods, n_variables), optional
-        An exogenous variable is a variable in a model whose value is determined outside 
-        the model but is imposed on the model. The exogenous variables that are passed 
-        will influence the simulation but will not be modeled by the simulation. The 
-        array should have the same number of rows as the endogenous array. Exogenous 
-        observations for a particular period should be in the same row as the endogenous 
+        An exogenous variable is a variable in a model whose value is determined outside
+        the model but is imposed on the model. The exogenous variables that are passed
+        will influence the simulation but will not be modeled by the simulation. The
+        array should have the same number of rows as the endogenous array. Exogenous
+        observations for a particular period should be in the same row as the endogenous
         observations for the same period.
     suppress_warnings : bool, default=False
         If True, StationaryWarning and CorrelatedExogWarning warnings are suppressed.
-        
+
     """
 
     def __init__(
@@ -72,7 +72,7 @@ class BaseSimulation:
     @staticmethod
     def _stationary(mv_series):
         """
-        Using the Augmented Dickey-Fuller test along with KPSS test to check 
+        Using the Augmented Dickey-Fuller test along with KPSS test to check
         stationarity of each variable in a multivariate time series.
 
         Parameters
@@ -135,7 +135,7 @@ class BaseSimulation:
         Returns
         -------
         ndarray of shape (n_periods, n_endog_variables + n_exog_variables)
-            An array with the endogenous variables in the leftmost columns and the 
+            An array with the endogenous variables in the leftmost columns and the
             exogenous variables in the rightmost columns.
 
         """
@@ -150,7 +150,7 @@ class BaseSimulation:
         Parameters
         ----------
         merged : ndarray of shape (-1, n_endog_variables + n_exog_variables)
-            An array with the endogenous variables in the leftmost columns and the 
+            An array with the endogenous variables in the leftmost columns and the
             exogenous variables in the rightmost columns.
         exog : ndarray of shape (-1, n_exog_variables)
             An array containing exogenous variables.
@@ -158,7 +158,7 @@ class BaseSimulation:
         Returns
         -------
         ndarray of shape (-1, n_endog_variables)
-            Returns the columns from merged that are attributable to endogenous 
+            Returns the columns from merged that are attributable to endogenous
             variables.
 
         """
@@ -168,7 +168,7 @@ class BaseSimulation:
     @staticmethod
     def _log_change(mv_series):
         """
-        Computes the one-period log percantage change for each variable in a 
+        Computes the one-period log percantage change for each variable in a
         multivariate time series.
 
         Parameters
@@ -188,7 +188,7 @@ class BaseSimulation:
 
     def _remove_correlated_exog(self):
         """
-        Checks correlation of exogenous variables to endogenous variables. If any 
+        Checks correlation of exogenous variables to endogenous variables. If any
         exogenous variable has correlation coefficient of 0.98 or more or -0.98 or less
         to an endogenous variable, the exogenous variable is removed.
 
@@ -229,10 +229,10 @@ class BaseSimulation:
     @staticmethod
     def _mean_rvs(log_change):
         """
-        Given observation, estimate distribution space that contains the true population 
+        Given observation, estimate distribution space that contains the true population
         mean. Return a random mean from this space using t-distrubtion. Random means are
         only sampled from within the bounds of the 70% confidence interval.
-        
+
         Parameters
         ----------
         log_change : ndarray of shape (n_periods, )
@@ -241,15 +241,15 @@ class BaseSimulation:
         Returns
         -------
         random_mean : float
-            Random value from t-distribution estimated to contain the true population 
+            Random value from t-distribution estimated to contain the true population
             mean.
-        
+
         """
         m = np.mean(log_change)
         n = log_change.shape[0]
         se = sem(log_change)
         t_dist = t(df=n - 1, loc=m, scale=se)
-        lower_bound, upper_bound = t_dist.interval(alpha=0.7)
+        lower_bound, upper_bound = t_dist.interval(confidence=0.7)
         random_mean = t_dist.rvs()
         while not lower_bound <= random_mean <= upper_bound:
             random_mean = t_dist.rvs()
@@ -258,10 +258,10 @@ class BaseSimulation:
     @staticmethod
     def _std_rvs(log_change):
         """
-        Given observation, estimate distribution space that contains the true population 
-        standard deviation. Return a random standard deviation from this space using 
+        Given observation, estimate distribution space that contains the true population
+        standard deviation. Return a random standard deviation from this space using
         chi squared distrubtion.
-        
+
         Parameters
         ----------
         log_change : ndarray of shape (n_periods, )
@@ -270,20 +270,20 @@ class BaseSimulation:
         Returns
         -------
         random_mean : float
-            Random value from chi squared distribution estimated to contain the true 
+            Random value from chi squared distribution estimated to contain the true
             population standard deviation.
-            
+
         """
         s = np.std(log_change, ddof=1)
         n = log_change.shape[0]
-        num = (n - 1) * (s ** 2)
+        num = (n - 1) * (s**2)
         random_std = np.sqrt(num / chi2.rvs(df=n - 1))
         return random_std
 
     def _fit_hmm_sim_to_empirical(self, hmm_sim, log_change):
         """
-        Fits each variable in a hidden markov model simulation to an emprical (or 
-        prototypical) distribution so that the resulting simulation has log percentage 
+        Fits each variable in a hidden markov model simulation to an emprical (or
+        prototypical) distribution so that the resulting simulation has log percentage
         change distributions resembling the observed time series.
 
         Parameters
@@ -297,8 +297,8 @@ class BaseSimulation:
         Returns
         -------
         simulation : ndarray of shape (n_periods, n_variables)
-            A random multivariate correlated simulation of log percentage changes where 
-            the distribution each variable resembles the distribution found in the 
+            A random multivariate correlated simulation of log percentage changes where
+            the distribution each variable resembles the distribution found in the
             empricial (or prototypical) time series.
 
         """
@@ -358,7 +358,7 @@ class BaseSimulation:
             The one-period log percentage change for each column in a multivariate time
             series.
         begin_values : ndarray of shape (1, n_variables)
-            The beginning values for each column of a multivariate time series 
+            The beginning values for each column of a multivariate time series
             simulation.
 
         Returns
@@ -377,7 +377,7 @@ class BaseSimulation:
         """
         Checks each variable in endogenous time series for stationarity. Simulation is
         not intended for stationary variables.
-        
+
         Raises
         ------
         StationaryWarning
@@ -396,7 +396,7 @@ class BaseSimulation:
 
     def _validate_positive(self):
         """
-        Checks all time series for negative values. Time series with negative values are 
+        Checks all time series for negative values. Time series with negative values are
         not supported.
 
         Raises
@@ -423,15 +423,15 @@ class BaseSimulation:
         """
         Creates beginning values array to use in the simulation given the begin_values
         parameter passed at initiation.
-        
+
         Parameters
         ----------
         bv_arg : {"start", "end", "norm"}
-        
+
         Returns
         -------
         begin_values : ndarray of shape (1, n_variables)
-            The beginning values for each column of a multivariate time series 
+            The beginning values for each column of a multivariate time series
             simulation.
 
         """
@@ -452,11 +452,11 @@ class BaseSimulation:
     def _periods_per_sim(self, periods):
         """
         Sets periods_per_sim parameter if not passed at initiation.
-        
+
         Parameters
         ----------
         periods : None or int
-            
+
         Returns
         -------
         int
@@ -486,40 +486,40 @@ class BaseSimulation:
     ):
         """
         Generate simulations using the data set at object initiation.
-        
+
         Parameters
         ----------
         n_sims : int, default=100
             The number of simulations to generate.
         periods_per_sim : int, optional
-            The number of periods, or rows, to generate in each simulation. If None 
-            (default), the periods per simulation will match the number of rows in the 
+            The number of periods, or rows, to generate in each simulation. If None
+            (default), the periods per simulation will match the number of rows in the
             endogenous array.
         begin_values : {"start", "end", "norm"}, default="start"
-            The values to set for the first row of each simulation. "start" will set the 
-            first row of each simulation to match the first row of the endogenous 
-            series. "end" will set the first row of each simulation to match the last 
-            row of the endogenous series. "norm" will set the first row of each 
+            The values to set for the first row of each simulation. "start" will set the
+            first row of each simulation to match the first row of the endogenous
+            series. "end" will set the first row of each simulation to match the last
+            row of the endogenous series. "norm" will set the first row of each
             simulation to 1 in all columns.
         hmm_search_n_iter : int, default=60
-            For Hidden Markov Model search, the number of parameter settings that are 
-            sampled. ``n_iter`` trades off runtime vs quality of the solution. If 
-            exhausitive search of the parameter grid would result in fewer iterations, 
+            For Hidden Markov Model search, the number of parameter settings that are
+            sampled. ``n_iter`` trades off runtime vs quality of the solution. If
+            exhausitive search of the parameter grid would result in fewer iterations,
             search stops when all parameter combinations have been searched.
         hmm_search_n_fits_per_iter : int, default=10
-            The number of Hidden Markov Models to be randomly initialized and evaluated 
+            The number of Hidden Markov Models to be randomly initialized and evaluated
             for each combination of parameter settings.
         hmm_search_params : dict, default=None
-            For Hidden Markov Model search, dictionary with parameter names (str) as 
-            keys and lists of parameters to try as dictionary values. Parameter lists 
+            For Hidden Markov Model search, dictionary with parameter names (str) as
+            keys and lists of parameters to try as dictionary values. Parameter lists
             are sampled uniformly. All of the parameters are required:
-            
+
             * n_states: list of ints
             * cov_window_size: list of ints
             * pca_n_components: list of floats, ints, or None
             * scale_before_pca: list of bool
             * scale_after_pca: list of bool
-            
+
             If ``fit_pipeline_params`` is ``None``, default is::
 
                 dict = (
@@ -530,12 +530,12 @@ class BaseSimulation:
                     scale_after_pca = [True, False],
                 )
         output_as_float32 : bool, default=False
-            If True, convert simulation array to float32. If False, simulation will be 
+            If True, convert simulation array to float32. If False, simulation will be
             output as float64.
         n_jobs : int, default=None
-            Number of jobs to run in parallel when performing Hidden Markov Model search 
-            as well as when generating simulations. None means 1. -1 means using all 
-            processors. 
+            Number of jobs to run in parallel when performing Hidden Markov Model search
+            as well as when generating simulations. None means 1. -1 means using all
+            processors.
         verbose : bool, default=True
             If True, progress bar written to stdout as simulations are generated.
 

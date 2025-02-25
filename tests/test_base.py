@@ -97,7 +97,7 @@ def test_random_mean_generator():
 
     se = sem(test_obs)
     test_dist = t(df=n - 1, loc=np.mean(test_obs), scale=se)
-    lower_bound, upper_bound = test_dist.interval(alpha=0.7)
+    lower_bound, upper_bound = test_dist.interval(confidence=0.7)
     random_test_means = list()
 
     while len(random_test_means) < n:

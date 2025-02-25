@@ -7,42 +7,42 @@ from .base import BaseSimulation
 class SimCAP(BaseSimulation):
     """
     Simulation of Correlated Asset Prices
-    
+
     Parameters
     ----------
     asset_price_history : pandas DataFrame of shape (n_periods, n_assets)
-        DataFrame of asset price history. Assets should be in columns with periods in 
-        rows. Ticker symbol or some other unique label for the asset should be in the 
-        first row. It is assumed the passed DataFrame is already sorted chronologically 
-        with the most recent price observation in the last row. Each of the assets in  
+        DataFrame of asset price history. Assets should be in columns with periods in
+        rows. Ticker symbol or some other unique label for the asset should be in the
+        first row. It is assumed the passed DataFrame is already sorted chronologically
+        with the most recent price observation in the last row. Each of the assets in
         this DataFrame will be modeled by the simulation.
     prototypes : list of ndarrays or pandas Series of shape (n_periods, ), optional
-        A list of univariate time series of shape (n_periods, ). It is assumed each of 
-        the prototypes are already sorted chronologically with the most recent  
-        observation in the last element of the array/Series. Prototypical time series 
-        can be used to model distributions of assets. For example, if attempting to 
-        model the price of a mutual fund with only two years of bull market price 
-        history, one might decide to use a stock index like the S&P 500 as a prototype 
-        for the mutual fund since the stock index has a longer history with examples 
+        A list of univariate time series of shape (n_periods, ). It is assumed each of
+        the prototypes are already sorted chronologically with the most recent
+        observation in the last element of the array/Series. Prototypical time series
+        can be used to model distributions of assets. For example, if attempting to
+        model the price of a mutual fund with only two years of bull market price
+        history, one might decide to use a stock index like the S&P 500 as a prototype
+        for the mutual fund since the stock index has a longer history with examples
         across all market regimes.
     asset_proto_rel : dict, optional
-        Required if prototypes are used. A dictionary mapping assets to prototypes. For 
-        example, if the asset with ticker of "SPD" maps to the first prototype, "GSUS" 
-        does not have a prototype, and "XVV" maps to the second prototype, pass the 
+        Required if prototypes are used. A dictionary mapping assets to prototypes. For
+        example, if the asset with ticker of "SPD" maps to the first prototype, "GSUS"
+        does not have a prototype, and "XVV" maps to the second prototype, pass the
         dictionary: {"SPD": 0, "GSUS": None, "XVV": 1}
     external_factors : pandas DataFrame of shape (n_periods, n_assets), optional
-        DataFrame of factors that are used to influence the simulation of asset prices 
-        but are not simulated themselves. The DataFrame should have the same number of 
-        rows as the asset_price_history DataFrame. external_factor observations for a 
-        particular period should be in the same row as the asset_price_history 
-        observations for the same period. For example, if row 4 of the 
-        asset_price_history DataFrame are prices recorded on 2021-11-15, row 4 of the 
-        external_factors DataFrame should also be values that were recorded on 
+        DataFrame of factors that are used to influence the simulation of asset prices
+        but are not simulated themselves. The DataFrame should have the same number of
+        rows as the asset_price_history DataFrame. external_factor observations for a
+        particular period should be in the same row as the asset_price_history
+        observations for the same period. For example, if row 4 of the
+        asset_price_history DataFrame are prices recorded on 2021-11-15, row 4 of the
+        external_factors DataFrame should also be values that were recorded on
         2021-11-15.
     suppress_warnings : bool, default=False
         If True, StationaryWarning and CorrelatedExogWarning warnings are suppressed.
-    
-    
+
+
     Examples
     --------
     >>> from simcap.datasets import load_example_asset_price_history
@@ -52,13 +52,13 @@ class SimCAP(BaseSimulation):
     (2517, 8)
     >>> model = SimCAP(asset_prices)
     >>> sims = model.generate_simulations(
-    >>>     n_sims=10, 
+    >>>     n_sims=10,
     >>>     periods_per_sim=500,
     >>>     output_as_dfs=False,
     >>> )
     >>> print(sims.shape)
     (10, 500, 8)
-        
+
     """
 
     def __init__(
@@ -85,7 +85,7 @@ class SimCAP(BaseSimulation):
 
     def _history_to_endog(self):
         """
-        Sets asset_price_history values as the endogenous parameter of the base 
+        Sets asset_price_history values as the endogenous parameter of the base
         simulator.
 
         """
@@ -120,7 +120,7 @@ class SimCAP(BaseSimulation):
 
     def _prepare_rel(self):
         """
-        Converts ticker-to-prototype relationship to column-index-to-prototype 
+        Converts ticker-to-prototype relationship to column-index-to-prototype
         relationship setup used in the base simulator.
 
         """
@@ -147,40 +147,40 @@ class SimCAP(BaseSimulation):
     ):
         """
         Generate simulations using the data set at object initiation.
-        
+
         Parameters
         ----------
         n_sims : int, default=100
             The number of simulations to generate.
         periods_per_sim : int, optional
-            The number of periods, or rows, to generate in each simulation. If None 
-            (default), the periods per simulation will match the number of rows in the 
+            The number of periods, or rows, to generate in each simulation. If None
+            (default), the periods per simulation will match the number of rows in the
             asset_price_history DataFrame.
         begin_values : {"start", "end", "norm"}, default="norm"
-            The values to set for the first row of each simulation. "start" will set the 
-            first row of each simulation to match the first row of asset prices in the 
-            asset_price_history DataFrame. "end" will set the first row of each 
-            simulation to match the last row of the asset_price_history DataFrame. 
+            The values to set for the first row of each simulation. "start" will set the
+            first row of each simulation to match the first row of asset prices in the
+            asset_price_history DataFrame. "end" will set the first row of each
+            simulation to match the last row of the asset_price_history DataFrame.
             "norm" will set the first row of each simulation to 1 for all assets.
         hmm_search_n_iter : int, default=60
-            For Hidden Markov Model search, the number of parameter settings that are 
-            sampled. ``n_iter`` trades off runtime vs quality of the solution. If 
-            exhausitive search of the parameter grid would result in fewer iterations, 
+            For Hidden Markov Model search, the number of parameter settings that are
+            sampled. ``n_iter`` trades off runtime vs quality of the solution. If
+            exhausitive search of the parameter grid would result in fewer iterations,
             search stops when all parameter combinations have been searched.
         hmm_search_n_fits_per_iter : int, default=10
-            The number of Hidden Markov Models to be randomly initialized and evaluated 
+            The number of Hidden Markov Models to be randomly initialized and evaluated
             for each combination of parameter settings.
         hmm_search_params : dict, default=None
-            For Hidden Markov Model search, dictionary with parameter names (str) as 
-            keys and lists of parameters to try as dictionary values. Parameter lists 
+            For Hidden Markov Model search, dictionary with parameter names (str) as
+            keys and lists of parameters to try as dictionary values. Parameter lists
             are sampled uniformly. All of the parameters are required:
-            
+
             * n_states: list of ints
             * cov_window_size: list of ints
             * pca_n_components: list of floats, ints, or None
             * scale_before_pca: list of bool
             * scale_after_pca: list of bool
-            
+
             If ``fit_pipeline_params`` is ``None``, default is::
 
                 dict = (
@@ -191,27 +191,27 @@ class SimCAP(BaseSimulation):
                     scale_after_pca = [True, False],
                 )
         output_as_dfs : bool, default=True
-            If True, simulations are output as an n_sims element list of DataFrames of 
-            shape (periods_per_sim, n_assets). If False, simulations are ouput as an 
+            If True, simulations are output as an n_sims element list of DataFrames of
+            shape (periods_per_sim, n_assets). If False, simulations are ouput as an
             ndarray of shape (n_sims, periods_per_sim, n_assets).
         output_as_float32 : bool, default=False
-            If True, convert simulation array to float32. If False, simulation will be 
+            If True, convert simulation array to float32. If False, simulation will be
             output as float64.
         n_jobs : int, default=None
-            Number of jobs to run in parallel when performing Hidden Markov Model search 
-            as well as when generating simulations. None means 1. -1 means using all 
+            Number of jobs to run in parallel when performing Hidden Markov Model search
+            as well as when generating simulations. None means 1. -1 means using all
             processors.
         verbose : bool, default=True
             If True, progress bar written to stdout as simulations are generated.
-            
+
         Returns
         -------
-        simulations : list (of length n_sims) of pandas DataFrames of shape 
-        (n_periods, n_variables) or ndarray of shape (n_simulations, n_periods, 
+        simulations : list (of length n_sims) of pandas DataFrames of shape
+        (n_periods, n_variables) or ndarray of shape (n_simulations, n_periods,
         n_variables)
-            If ``output_as_dfs`` is True, simulations are output as an n_sims 
+            If ``output_as_dfs`` is True, simulations are output as an n_sims
             element list of DataFrames of shape (periods_per_sim, n_assets).
-            If False, simulations are ouput as an ndarray of shape (n_sims, 
+            If False, simulations are ouput as an ndarray of shape (n_sims,
             periods_per_sim, n_assets).
 
         """
